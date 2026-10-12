@@ -1,0 +1,21 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    # Day 1 challenge: no healthcheck yet. This only waits for the db
+    # CONTAINER to start, not for Postgres to accept connections.
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
