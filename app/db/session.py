@@ -1,35 +1,42 @@
 from collections.abc import AsyncIterator
+from functools import lru_cache
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
+    AsyncEngine,
     async_sessionmaker,
     create_async_engine,
 )
 from app.core.config import get_settings
 
-# 1. Se obtiene la configuración de la base de datos desde el archivo config.py
-settings = get_settings()
+
+# SQLAlchemy's Engine to administrate the database connection. This engine is an object that represents the database and allows executing SQL queries.
+def build_engine(url:str) -> AsyncEngine:
+    """Crea un engine de SQLAlchemy para la base de datos."""
+    return create_async_engine(
+        url,
+        echo=False, # Switch to True if you want to see the SQL queries being executed in development.
+    )
+
+@lru_cache
+def get_engine() -> AsyncEngine:
+    """Devuelve el engine de SQLAlchemy para la base de datos."""
+    return build_engine(get_settings().database_url)
 
 
-# El engine de SQLAlchemy para manejar la conexión a la base de datos (Python a PostgreSQL)
-engine = create_async_engine(
-    settings.database_url,
-    future=True,
-    echo=False,  # Cambiar a True si necesitas ver los logs de SQL en desarrollo
-)
-#Se crea un sessionmaker para manejar las sesiones de la base de datos
-SessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+#We create a sessionmaker that will be used to create sessions for interacting with the database.
+@lru_cache
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Returns a sessionmaker for creating database sessions."""
+    return async_sessionmaker(
+        bind=get_engine(),
+        expire_on_commit=False,
+    )
 
-# 3. La dependencia para tus endpoints de FastAPI
-# Esta función se puede usar como una dependencia en tus rutas de FastAPI para obtener una sesión de base de datos por solicitud.
+
 async def get_session() -> AsyncIterator[AsyncSession]:
   """FastAPI dependency: one session per request, always closed."""
-  async with SessionLocal() as session:
+  factory = get_sessionmaker() # Easier to read than get_sessionmaker()()
+  async with factory() as session:
     try:
       yield session
     finally:

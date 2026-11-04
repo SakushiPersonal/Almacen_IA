@@ -1,26 +1,28 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
-from app.main import app  # Importamos tu instancia de FastAPI configurada
+from app.main import create_app  # Import the function that creates the FastAPI app instance
+from app.core.config import Settings
 
+def make_test_settings() -> Settings:
+    # never used for a connection: /health does not touch the DB
+    return Settings(database_url="postgresql+asyncpg://unused:unused@localhost/unused")
 
 @pytest.mark.asyncio
 async def test_health_endpoint():
-  """Prueba que el endpoint /health responda 200 OK usando AsyncClient y
+  """Tests the health endpoint."""
 
-  ASGITransport.
-  """
-  # 1. Configuramos el transporte ASGI con nuestra app de FastAPI
+  app = create_app(make_test_settings())  # Create the FastAPI app instance with test settings
   transport = ASGITransport(app=app)
 
-  # 2. Inicializamos el cliente asíncrono pasándole el transporte
-  # Usamos un 'base_url' ficticio porque la petición se resuelve internamente en memoria
+  
+  # We use a fictional 'base_url' because the request is resolved internally in memory
   async with AsyncClient(
       transport=transport, base_url="http://testserver"
   ) as client:
 
-    # 3. Realizamos la petición asíncrona al endpoint (recuerda que añadimos el prefijo /api/v1)
+    # Performing the asynchronous request to the endpoint
     response = await client.get("/api/v1/health")
 
-    # 4. Asertamos que la respuesta cumpla con las especificaciones
+    # Asserting that the response meets the specifications
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "api"}
