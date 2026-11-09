@@ -5,33 +5,31 @@ from app.routers import health
 from app.db.session import get_engine
 import logging
 
-
 logger = logging.getLogger(__name__) 
 
-# 1. life cycle config (Lifespan)
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Code here runs ONCE when the API starts
-    settings = get_settings()
-    logger.info("Starting %s", settings.app_name)
-    
-    yield
-
-    # Code here runs ONCE when the API shuts down
-    logger.info("Shutting down %s", settings.app_name)
-    await get_engine().dispose()  # close Correctly connection pool to DB
-
-
-# 2. Inicializing the FastAPI application instance.
+# Initializing the FastAPI application instance.
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Creates and configures the FastAPI application instance."""
     if settings is None:
         settings = get_settings()
 
+    # life cycle config (Lifespan)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # Code here runs ONCE when the API starts
+        settings = get_settings()
+        logger.info("Starting %s", settings.app_name)
+        
+        yield
+
+        # Code here runs ONCE when the API shuts down
+        logger.info("Shutting down %s", settings.app_name)
+        await get_engine().dispose()  # close Correctly connection pool to DB
+
     logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     app= FastAPI(

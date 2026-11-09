@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -21,10 +20,10 @@ async def health_db(session: AsyncSession = Depends(get_session)) -> dict[str, s
         # text("SELECT 1") le dice a SQLAlchemy que ejecute SQL puro de forma segura
         await session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
-    except Exception as e:
+    except Exception:
         # Si la base de datos está caída, la petición fallará aquí
-        logger.exception("Database connection failed: %s", str(e))
+        logger.exception("Database connection failed: %s")
         raise HTTPException(
             status_code=503,
             detail="Database connection failed",
-        ) from e
+        )
