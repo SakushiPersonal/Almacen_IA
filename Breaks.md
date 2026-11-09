@@ -1,5 +1,5 @@
 1.- levantar pytest con modulo health:
-        No funciona, ya que al hacer todas las importanciones necesarias se llama a una session de la base de datos, la cual a su vez llama las variables settings desde config.py, las cuales 'BaseSettings' sirve para encontrarlas, pero aún no está configurado para encontrarlas desde el .env, lo cual hace que falle el test por no encontrar valor para la variable 'DATABASE_URL'
+        No funcionaba, ya que teníamos llamadas a get_settings() a nivel módulo en algunos de ellos, lo cual causaba que con solo importar un módulo, se llamara get_settings(), incluso cuando no lo necesitabamos. Esto intentaba resolver los valores de las variables, las cuales no podía obtener y por lo tanto generaba un error en el código.
 
 2.- Estar más ateto al código que recivo de plantillas y ayudas externas:
         Tanto de los comentarios como la estructura y funciones de cuertos módulos que no existen, tener coherencia en el código escrito y en los comentarios. Código que no entiendas que hace no es tú código.
@@ -36,7 +36,7 @@ Ej:
 
         Además la función de Python que se ejecuta al llegar este request se llama HANDLER (async def health()).
 
-8.- Respecto a la APP, con fastAPI, no se conecta nada ni se levantan puertos, solo se Crea un Objeto en memoria con configuración y rutas, lo que realmente "levanta" la app es Uvicorn, el cual no se llega a utilizar en caso de los test, ya que usamos ASGITransport, el cual se encarga de hacer todo de forma interna en memoria, no debemos preocuparnos.
+8.- Respecto a la APP, con fastAPI, no se conecta nada ni se levantan puertos, solo se Crea un Objeto en memoria con configuración y rutas, lo que realmente "levanta" la app es Uvicorn, el cual no se llega a utilizar en caso de los test, ya que usamos ASGITransport, el cual se encarga de hacer todo de forma interna en memoria, por lo cual solo hay que tner consideración con lo que tengamos dentro de lifespan, ya que aquello no correrá en nuestros tests.
 
 9.- lifespan: son eventos de ciclo de vida de un proceso, en nuestro caso ahora lo tenemos para nuestra APP, por lo cual quiere decir que lifespan avisa cuando la app arranca y cuando se apaga.
 
@@ -50,3 +50,69 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
                 Apagado : avisa shutdown
 
         ASGITransport (Test): al ser de HTTPX, éste solo envía requests HTTP, por lo cuál nunca avisa a la app que se apaga o que arranca.
+
+
+
+----------------------------------------------------------------------------------------------------
+
+## 2026-11-09 — <CI en cero no significa verde>
+- Esperaba: al correr la CI esperaba que marcara exit code 0 y verde como si los test hubieran pasado, ya que no teniamos ninguno hasta el momento.
+- Obtuve: En cambio recibí un exit code 5, ya que pytest no logró encontrar test los cuales correr.
+- Preguntas: 
+- Predicción:
+- Resultado:
+- Decisión:
+
+
+## 2026-11-09 — <ValidationError>
+- Esperaba: que el test solo corriera y me entregara si el test habia fallado o no.
+- Obtuve: un error por código que nisiquiera estaba en el modulo de health
+- Preguntas: ¿Qué fué lo que falló y por qué?
+- Predicción: algo estaba llamando a get_settings() directamente y éste no poseía los valores en algunas de sus variables.
+- Resultado: estabamos llamando a get_Settings() a nivel módulo, lo cual generaba que solo al importart un módulo, python lo ejecutara.
+- Decisión: modificamos el código para que todas las instancias de get_Settings se encontraran dentro de una función y no llamadas directamente dentro de un módulo.
+
+
+## 2026-11-09 — <get_sessionmaker>
+- Esperaba: al modificar el código para que todo aquello que requiriera de elementos externos al módulo se encontrara dentro de alguna función para no ser llamado directamente, en la función para crear una session cambiamos como se ejecutaba la fábrica, lo cual debería haber funcionado.
+- Obtuve: obtube un error de tipo al intentar entregarle aquella sesion a la app.
+- Preguntas: ¿por pué obtuve un error de tipo si estaba entregando la sesion correctamente?
+- Predicción: algo dentro del código que cambiamos había quedado mal escrito debido a un mal entendimiento de ejecución de código.
+- Resultado: Resulta que estabamos entregando la fábrica de sesiones como objeto de sesion a la app, y no una sesión creada por la fabrica para que se usara debidamente.
+- Decisión: Se modificó en código para que en la función ansíncrona que entrega las sesiones se ejecutara la fábrica y luego corrieramos la fábrica para quenos devolviese la sesión que necesitabamos.
+
+
+## 2026-11-09 — <lifespan>
+- Esperaba: que ASGITransport al correr los tests, prácticamente ejecutara todo el código relacionado con la app.
+- Obtuve: Que lo único que hace es crear la app y hacerla funcioanr de forma interna.
+- Preguntas: ¿Que pasaba con lifespan y el cierre correcto de los engine?
+- Predicción: Se estaba ejecutando correctamente pero n ose veía.
+- Resultado: ASGITransport no ejecuta lifespan, por lo cual todo lo que pueda estar dentro de él, no se levanta.
+- Decisión: Solo se tomó en consideración para no dejar código necesario para el funcionamiento de la app dentro de lifespan.
+
+
+## 2026-11-09 — <get_app>
+- Esperaba: que al levantar los contenedores de nuestra api, funcionaran tal cual como funcionaban a l correr main.py
+- Obtuve: error al levantar el contenedor de la app.
+- Preguntas: ¿ que es diferente que no está dejando levantar la app?
+- Predicción: ¿ Algo había quedado mal escrito o ignorado en el dockerfile?
+- Resultado:  Resulta que estabamos llamando a get_app dentro del dockerfile, cuando para levantar la app solo teniamos create_app
+- Decisión: se modificó los valores que se le entregaban al dockerfile para levantar la app.
+
+
+## 2026-11-09 — <test db con error 503
+- Esperaba: Esperaba que al leer los logs en el momento en el que se inicializa la app y la db, hubiera un intervalo en donde la app estuviese levantaba y la db no, por lo cual entregaría 503.
+- Obtuve: solo 000 y 200
+- Preguntas: ¿ está la app guardando algún estado de la db o realmente esperando a que la db esté lista para recién levantarse?
+- Predicción: la app estaba esperando correctamente a que la db estuviese up antes de levantarse y hacer correr el test.
+- Resultado: la db al levantarse en el contenedor, como no se había bajado con verbose y no poseemos de mucho contenido en ella por el momento, ésta se estaba levantando incluso ántes que la misma app, por lo cual para cuando la app ya estaba lista para hacer el test, la base de datos ya estaba lista para recibir queries.
+- Decisión: Solo se consideró el hecho y se implementó a nivel de compose que a futuro al levantar la app y la db, que la app realmente espere a que la db esté lista para recibir queries ántes de inicializarse y no solo esperar a que el contenedor de la db se levante.
+
+
+## 2026-11-09 — <503 puede significar diferentes cosas, importante ver logs>
+- Esperaba: al ver código de exepcion 503, la razón fiera la misma siempre.
+- Obtuve: 503 tiene más de una razón por la cual se puede presentar.
+- Preguntas: ¿ Donde puedo ver la razón principal detrás de una excepción 503 y porqué no son iguales?
+- Predicción: al hacerse un test primero la app tiene un estado guardado y al siguiente ya reconoce que no se puede comunicar con la db.
+- Resultado: Efectívamente en el primer 503 la app reconocía como sesion cerrada o vencida, mientras que en el siguiente, como la sesion ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
+- Decisión: Se consideró siempre verificar los logs en caso de querer arreglar un bug entender un test, ya que en ellos aparece la verdadera razón de lo que puede estar pasando.

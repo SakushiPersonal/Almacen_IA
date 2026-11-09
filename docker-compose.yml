@@ -6,16 +6,26 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   api:
     build: .
     env_file: .env
     ports:
       - "8000:8000"
-    # Day 1 challenge: no healthcheck yet. This only waits for the db
-    # CONTAINER to start, not for Postgres to accept connections.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # wait for the database to be healthy before starting the API service
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -17,7 +17,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # Code here runs ONCE when the API starts
-        settings = get_settings()
         logger.info("Starting %s", settings.app_name)
         
         yield

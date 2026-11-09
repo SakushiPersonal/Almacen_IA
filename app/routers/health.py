@@ -21,8 +21,7 @@ async def health_db(session: AsyncSession = Depends(get_session)) -> dict[str, s
         await session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
     except Exception:
-        # Si la base de datos está caída, la petición fallará aquí
-        logger.exception("Database connection failed: %s")
+        # If the database connection fails, we log the error and raise an HTTPException.
         raise HTTPException(
             status_code=503,
             detail="Database connection failed",
