@@ -61,7 +61,7 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Preguntas: ¿por qué el pytest sigue fallando a pesar de no tener test que correr?
 - Predicción: Pytest puede asumir que al correrse y no encontrar tests se pueda deber a un error de que no los encuentre, y no que no existan.
 - Resultado: Pytest se cierra en rojo porque considera que no encontrar pruebas es un error de configuración o un fallo en el entorno.
-- Decisión: Se corrigió el error de configuración de test para que pudiera ejecutarse al correr pytest.
+- Decisión: evitó tapar el rojo de pytest y en cambio se implementó un test para que lo ejecutara.
 
 
 ## 2026-11-09 — <ValidationError>
@@ -114,5 +114,5 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Obtuve: 503 tiene más de una razón por la cual se puede presentar.
 - Preguntas: ¿ Donde puedo ver la razón principal detrás de una excepción 503 y porqué no son iguales?
 - Predicción: al hacerse un test primero la app tiene un estado guardado y al siguiente ya reconoce que no se puede comunicar con la db.
-- Resultado: Efectívamente en el primer 503 la app reconocía como conección (caché del engine) cerrada o vencida, mientras que en el siguiente, como la sesion ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
+- Resultado: Efectívamente en el primer 503 la app reconocía como conexión (pool de conexiones dentro del engine) cerrada o vencida, mientras que en el siguiente, como la conexión ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
 - Decisión: Se consideró siempre verificar los logs en caso de querer arreglar un bug entender un test, ya que en ellos aparece la verdadera razón de lo que puede estar pasando.
