@@ -58,10 +58,10 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 ## 2026-11-09 — <CI en cero no significa verde>
 - Esperaba: al correr la CI esperaba que marcara exit code 0 y verde como si los test hubieran pasado, ya que no teniamos ninguno hasta el momento.
 - Obtuve: En cambio recibí un exit code 5, ya que pytest no logró encontrar test los cuales correr.
-- Preguntas: 
-- Predicción:
-- Resultado:
-- Decisión:
+- Preguntas: ¿por qué el pytest sigue fallando a pesar de no tener test que correr?
+- Predicción: Pytest puede asumir que al correrse y no encontrar tests se pueda deber a un error de que no los encuentre, y no que no existan.
+- Resultado: Pytest se cierra en rojo porque considera que no encontrar pruebas es un error de configuración o un fallo en el entorno.
+- Decisión: Se corrigió el error de configuración de test para que pudiera ejecutarse al correr pytest.
 
 
 ## 2026-11-09 — <ValidationError>
@@ -92,12 +92,12 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 
 
 ## 2026-11-09 — <get_app>
-- Esperaba: que al levantar los contenedores de nuestra api, funcionaran tal cual como funcionaban a l correr main.py
+- Esperaba: que al levantar los contenedores de nuestra api, funcionaran tal cual como funcionaban a l correr main.py o los tests.
 - Obtuve: error al levantar el contenedor de la app.
 - Preguntas: ¿ que es diferente que no está dejando levantar la app?
 - Predicción: ¿ Algo había quedado mal escrito o ignorado en el dockerfile?
 - Resultado:  Resulta que estabamos llamando a get_app dentro del dockerfile, cuando para levantar la app solo teniamos create_app
-- Decisión: se modificó los valores que se le entregaban al dockerfile para levantar la app.
+- Decisión: se modificó los valores que se le entregaban al dockerfile para levantar la app. Además agregamos a la CI un job para que construyera la imagen y arrancara el contenedor para evitar que el error o uno similar pueda pasar en verde otra vez.
 
 
 ## 2026-11-09 — <test db con error 503
@@ -105,7 +105,7 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Obtuve: solo 000 y 200
 - Preguntas: ¿ está la app guardando algún estado de la db o realmente esperando a que la db esté lista para recién levantarse?
 - Predicción: la app estaba esperando correctamente a que la db estuviese up antes de levantarse y hacer correr el test.
-- Resultado: la db al levantarse en el contenedor, como no se había bajado con verbose y no poseemos de mucho contenido en ella por el momento, ésta se estaba levantando incluso ántes que la misma app, por lo cual para cuando la app ya estaba lista para hacer el test, la base de datos ya estaba lista para recibir queries.
+- Resultado: la db al levantarse en el contenedor, como no se había bajado con -v (volúmenes, el cual borra los datos) y no poseemos de mucho contenido en ella por el momento, ésta se estaba levantando incluso ántes que la misma app, por lo cual para cuando la app ya estaba lista para hacer el test, la base de datos ya estaba lista para recibir queries.
 - Decisión: Solo se consideró el hecho y se implementó a nivel de compose que a futuro al levantar la app y la db, que la app realmente espere a que la db esté lista para recibir queries ántes de inicializarse y no solo esperar a que el contenedor de la db se levante.
 
 
@@ -114,5 +114,5 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Obtuve: 503 tiene más de una razón por la cual se puede presentar.
 - Preguntas: ¿ Donde puedo ver la razón principal detrás de una excepción 503 y porqué no son iguales?
 - Predicción: al hacerse un test primero la app tiene un estado guardado y al siguiente ya reconoce que no se puede comunicar con la db.
-- Resultado: Efectívamente en el primer 503 la app reconocía como sesion cerrada o vencida, mientras que en el siguiente, como la sesion ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
+- Resultado: Efectívamente en el primer 503 la app reconocía como conección (caché del engine) cerrada o vencida, mientras que en el siguiente, como la sesion ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
 - Decisión: Se consideró siempre verificar los logs en caso de querer arreglar un bug entender un test, ya que en ellos aparece la verdadera razón de lo que puede estar pasando.
