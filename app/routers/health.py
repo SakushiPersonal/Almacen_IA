@@ -17,7 +17,7 @@ async def health() -> dict[str, str]:
 async def health_db(session: AsyncSession = Depends(get_session)) -> dict[str, str]:
     """Runs SELECT 1."""
     try:
-        # text("SELECT 1") makes SQLAlchemy to execute a secure raw SQL query.
+        # text("SELECT 1") makes SQLAlchemy to execute a raw SQL query.
         await session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
     except Exception:

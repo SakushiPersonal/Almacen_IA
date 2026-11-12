@@ -129,11 +129,11 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 
 
 ## 2026-11-10 — <docker compose ps, no funciona>
-- Esperaba: al correr este comando, esperaba que funcionara sin problemas, ya que tenía todos lso archivos que requiere para funcionar.
-- Obtuve: Obtuve un error en donde me aparecía que docker compose no existe.
+- Esperaba: al correr este comando, esperaba que funcionara sin problemas, ya que tenía todos los archivos que requiere para funcionar.
+- Obtuve: Obtuve un error en donde me aparecía que: no configuration file provided: not found.
 - Preguntas: ¿ por qué me sale ese error, algó está mal configurado o lo estoy escribiendo mal?
 - Predicción: Posiblemente se deba a la ruta desde donde lo estaba intentado ejecutar.
-- Resultado: Efectivamente era por la ruta en la que no estaba intentando ejecutar, en donde no había un docker apuntando allí, ya que la ruta correcta es en la carpeta donde se encuentra el dockerfile, ya que el dockerfile apunta a esa misma carpeta como workdir.
+- Resultado: Efectivamente era por la ruta en la que lo estaba intentando ejecutar, ya que docker compose buscaba el archivo docker-compose.yml en la carpeta en donde me encontraba ejecutando el comando en la terminal.
 - Decisión: se recordó la ruta para futuros casos para correr ese comando o similares de forma correcta. 
 
 
@@ -143,5 +143,5 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Obtuve: la db se inicializa una vez, luego se apaga, para que finalmente se levante otra vez y allí si queda funcionando.
 - Preguntas: ¿ porqué hace eso? ¿es un comportamiento correcto o algo está saliendo mal?
 - Predicción: Posiblemente se intento levantar en un intento y algo estaba mal configurado, por lo cual recurrió a cerrar el intento, levantarlo otra véz hasta que funcione (como retries).
-- Resultado: Sucede que docker levanta la imagen primero apuntando a un socket Unix en donde solo el contenedor escucha, ésto para levantar la estructura de la base de datos (como el esqueleto), una vez hecho esto, guarda el esqueleto en la imagen, apaga la base de datos y levanta otra con la info guardada más los datos necesarios escuchando el los puertos IPv4 e IPv6 correspondientes para que esta db pueda ser alcanzada por otras aplicaciones.
-- Decisión: Solo se registró el conocimiento y se tomó como comportamiendo estándar de como se levanta el contenedor de la base de datos.
+- Resultado: Sucede que docker levanta la imagen primero apuntando a un socket Unix en donde solo el contenedor escucha, ésto para levantar la estructura de la base de datos (como el esqueleto), una vez hecho esto, guarda el esqueleto en el volumen 'pgdata', apaga la base de datos y levanta otra con la info guardada más los datos necesarios escuchando el los puertos IPv4 e IPv6 correspondientes para que esta db pueda ser alcanzada por otras aplicaciones. Esto además solo pasa cuando la imagen se monta por primera vez o cuando se apaga el contenedor con 'docker compose -v', ya que en este caso, también estaremos borrando los volúmenes y haciendo que la próxima vez que se levante el contenedor denuevo, se deba armar la base en volúmenes otra véz.
+- Decisión: se registró conocimiento y se decidió agregar -h al healthcheck para que así nos asegurásemos que estemos corriengo el healthcheck con el localhost y no con el primer montado de la imagen que escucha en Unix socket.
