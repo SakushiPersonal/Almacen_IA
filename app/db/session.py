@@ -10,7 +10,7 @@ from app.core.config import get_settings
 
 # SQLAlchemy's Engine to administrate the database connection. This engine is an object that represents the database and allows executing SQL queries.
 def build_engine(url:str) -> AsyncEngine:
-    """Crea un engine de SQLAlchemy para la base de datos."""
+    """Create an asynchronous SQLAlchemy engine for the database."""
     return create_async_engine(
         url,
         echo=False, # Switch to True if you want to see the SQL queries being executed in development.
@@ -18,7 +18,7 @@ def build_engine(url:str) -> AsyncEngine:
 
 @lru_cache
 def get_engine() -> AsyncEngine:
-    """Devuelve el engine de SQLAlchemy para la base de datos."""
+    """Returns the SQLAlchemy engine for the database."""
     return build_engine(get_settings().database_url)
 
 #We create a sessionmaker that will be used to create sessions for interacting with the database.

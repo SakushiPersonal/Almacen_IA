@@ -116,3 +116,32 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Predicción: al hacerse un test primero la app tiene un estado guardado y al siguiente ya reconoce que no se puede comunicar con la db.
 - Resultado: Efectívamente en el primer 503 la app reconocía como conexión (pool de conexiones dentro del engine) cerrada o vencida, mientras que en el siguiente, como la conexión ya se había reconocido vencida y por lo tanto descartada, la app fué a solicitar otra y se encontró que no tenía comunicación con la db.
 - Decisión: Se consideró siempre verificar los logs en caso de querer arreglar un bug entender un test, ya que en ellos aparece la verdadera razón de lo que puede estar pasando.
+
+
+## 2026-11-10 — <"postgres" en healthcheck>
+- Esperaba: que fuera una variable válida a entregarle al cmd para el healthcheck
+- Obtuve: que para el cmd que estabamos utilizando por CMD-SHELL no hacía nada.
+- Preguntas: ¿Entonces para qué es esa variable?
+- Predicción: Posiblemente es para decirle al healthcheck que use postgres para hacer el test del health        
+- Resultado: 'postgres' es para CMD (solo), en donde éste indica que se haga una búsqueda del servidor con nombre postgres dentro de la máquina y no dentro de el entorno/contenedor.
+- Decisión: como CMD-SHELL no lo requere y no estamos buscando testear algo externo, se decidió por eliminarlo.
+
+
+
+## 2026-11-10 — <docker compose ps, no funciona>
+- Esperaba: al correr este comando, esperaba que funcionara sin problemas, ya que tenía todos lso archivos que requiere para funcionar.
+- Obtuve: Obtuve un error en donde me aparecía que docker compose no existe.
+- Preguntas: ¿ por qué me sale ese error, algó está mal configurado o lo estoy escribiendo mal?
+- Predicción: Posiblemente se deba a la ruta desde donde lo estaba intentado ejecutar.
+- Resultado: Efectivamente era por la ruta en la que no estaba intentando ejecutar, en donde no había un docker apuntando allí, ya que la ruta correcta es en la carpeta donde se encuentra el dockerfile, ya que el dockerfile apunta a esa misma carpeta como workdir.
+- Decisión: se recordó la ruta para futuros casos para correr ese comando o similares de forma correcta. 
+
+
+
+## 2026-11-10 — <Inicio, shutdown e inicio otra vez al montar la imagen de la db>
+- Esperaba: Que la db si iniciara una sola vez y quedara lista.
+- Obtuve: la db se inicializa una vez, luego se apaga, para que finalmente se levante otra vez y allí si queda funcionando.
+- Preguntas: ¿ porqué hace eso? ¿es un comportamiento correcto o algo está saliendo mal?
+- Predicción: Posiblemente se intento levantar en un intento y algo estaba mal configurado, por lo cual recurrió a cerrar el intento, levantarlo otra véz hasta que funcione (como retries).
+- Resultado: Sucede que docker levanta la imagen primero apuntando a un socket Unix en donde solo el contenedor escucha, ésto para levantar la estructura de la base de datos (como el esqueleto), una vez hecho esto, guarda el esqueleto en la imagen, apaga la base de datos y levanta otra con la info guardada más los datos necesarios escuchando el los puertos IPv4 e IPv6 correspondientes para que esta db pueda ser alcanzada por otras aplicaciones.
+- Decisión: Solo se registró el conocimiento y se tomó como comportamiendo estándar de como se levanta el contenedor de la base de datos.
