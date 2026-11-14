@@ -123,7 +123,7 @@ Por lo cual nunestr app tiene dos formas de arrancar actualmente:
 - Obtuve: que para el cmd que estabamos utilizando por CMD-SHELL no hacía nada.
 - Preguntas: ¿Entonces para qué es esa variable?
 - Predicción: Posiblemente es para decirle al healthcheck que use postgres para hacer el test del health        
-- Resultado: 'postgres' es para CMD (solo), en donde éste indica que se haga una búsqueda del servidor con nombre postgres dentro de la máquina y no dentro de el entorno/contenedor.
+- Resultado: 'postgres' es para CMD (solo), generalmente se entrega como usuario para ingresar a la base de datos como superusuario predeterminado de postgres.
 - Decisión: como CMD-SHELL no lo requere y no estamos buscando testear algo externo, se decidió por eliminarlo.
 
 
