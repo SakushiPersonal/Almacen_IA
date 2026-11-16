@@ -87,6 +87,10 @@ la persistencia es propia. Conectarla al Supabase del POS queda para después de
   servidor.
 - **Un producto se referencia por `id`, código de barras o SKU**, en ese orden de prioridad. La
   descripción sola no identifica nada.
+- **Identidad en la importación (decisión 2 + 1, 2026-11-16):** si el CSV viene de un sistema con
+  IDs (el POS), la clave es `external_source` + `external_id`, única por negocio. Si es una
+  planilla genérica sin IDs, cada fila exige código de barras o SKU; la que no traiga ninguno se
+  rechaza con su error. Nunca se reconoce un producto por el nombre.
 - **Una línea de recepción = un lote**, con su cantidad y su fecha de vencimiento.
 - **Dinero y cantidades en `numeric` / `Decimal`**, nunca `float`. IDs en `uuid`.
 - **Ninguna cifra del negocio la genera el LLM:** las cifras salen de SQL y el modelo solo redacta.
@@ -137,7 +141,7 @@ al final del mes.
 | 1 | Repo, estructura por capas (routers / services / repositories), docker-compose con Postgres, CI que corre pytest | Predecir qué pasa si la API arranca antes que Postgres; comprobarlo y arreglarlo con healthcheck |
 | 2 | Modelos SQLAlchemy 2.0 async: Negocio, Categoría, Proveedor, Producto (código de barras, SKU) y Lote con cantidad y vencimiento; `business_id` en todo; stock derivado de los lotes. Migraciones Alembic | Cambiar un modelo sin migrar y predecir el error exacto antes de correr |
 | 3 | CRUD de productos con Pydantic v2, paginación y filtros por categoría | Borrar el router y reconstruirlo desde un archivo vacío, sin mirar |
-| 4 | Importador de catálogo desde CSV (forma de `POST /v1/catalogo`): upsert por código de barras o SKU, validación, errores por fila, carga masiva; el stock inicial crea un lote de apertura | Cargar 10.000 filas; predecir el tiempo antes y luego optimizar |
+| 4 | Importador de catálogo desde CSV (forma de `POST /v1/catalogo`): upsert por clave externa del POS o por código de barras / SKU, validación, errores por fila, carga masiva; el stock inicial crea un lote de apertura | Cargar 10.000 filas; predecir el tiempo antes y luego optimizar |
 | 5 | Auth JWT con roles (dueño, empleado) y dependencias de FastAPI; el `business_id` sale del token | Predecir qué devuelve un token expirado en cada endpoint y escribir los tests que lo prueban |
 | 6 | Documentos con transacciones e `idempotency_key`: recepciones (crean lotes) y ventas (consumen lotes en orden FEFO); endpoint de productos bajo el mínimo | Lanzar dos ventas simultáneas del último producto; predecir si el stock queda negativo |
 | 7 | Buffer: deuda de tests, refactor, repaso de `breaks.md` | Explicar en voz alta, en inglés, el recorrido de un request desde el router hasta la DB |
