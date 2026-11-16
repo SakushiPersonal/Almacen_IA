@@ -66,6 +66,45 @@ proveedores, horarios, promociones). Luego pregunta en lenguaje natural:
 
 ---
 
+## RELACIÓN CON EL POS MINIMARKET (decisión: Ruta C, 2026-11-16)
+
+Almacén IA se diseña como la **API de ingreso de mi POS minimarket** (`pos-minimarket`), pero
+durante el plan corre sobre **su propio Postgres**, como laboratorio donde se puede romper sin
+miedo. El contrato y los principios vienen de `docs/referencia-propuesta-api-ingreso-pos.md`;
+la persistencia es propia. Conectarla al Supabase del POS queda para después del plan.
+
+**Principios que no se vuelven a litigar (salvo que yo lo pida):**
+
+- **La API publica documentos, nunca estado.** Ningún endpoint fija el stock: el stock es
+  consecuencia de recepciones, ventas, conteos y movimientos. No hay `PUT .../stock`.
+- **El stock vive solo en los lotes** y se calcula al leer (suma de lotes). No hay columna de
+  stock en productos: una sola fuente de verdad, que no queda desactualizada cuando un lote vence.
+- **`business_id` en todas las tablas desde el día 2.** Desde el día 5 sale del token del usuario
+  autenticado, **nunca** del cuerpo del request.
+- **Todo `POST` de escritura lleva `idempotency_key`.** Un reintento devuelve el mismo documento
+  sin volver a mover stock.
+- **El precio de venta no se acepta del emisor:** sale del catálogo, y el total lo calcula el
+  servidor.
+- **Un producto se referencia por `id`, código de barras o SKU**, en ese orden de prioridad. La
+  descripción sola no identifica nada.
+- **Una línea de recepción = un lote**, con su cantidad y su fecha de vencimiento.
+- **Dinero y cantidades en `numeric` / `Decimal`**, nunca `float`. IDs en `uuid`.
+- **Ninguna cifra del negocio la genera el LLM:** las cifras salen de SQL y el modelo solo redacta.
+
+**La costura para conectarse al POS después:** `repositories/` es la única capa que toca la base.
+Cuando el control de lotes del POS exista, cambiar a sus funciones SQL debe tocar solo los
+repositories, no los routers ni el contrato.
+
+**Lo que NO se hace durante el plan:**
+- No se conecta al Supabase del POS ni se aplica nada en él.
+- No se reabre la decisión del POS "copiloto 100 % por reglas, sin LLM": el RAG y el agente de
+  este plan corren sobre los datos propios de Almacén IA. Llevarlos al POS exige su ADR-005.
+
+**Nombres:** el código va en inglés (`products`, `categories`, `suppliers`, `lots`,
+`businesses`). El importador traduce los nombres de columna del POS a los de esta API.
+
+---
+
 ## RITUAL DIARIO: `breaks.md`
 
 Archivo en la raíz del repo. Se actualiza todos los días, aunque no se haya roto nada grave.
@@ -96,11 +135,11 @@ al final del mes.
 | Día | Construyo yo | Reto de ruptura |
 | --- | --- | --- |
 | 1 | Repo, estructura por capas (routers / services / repositories), docker-compose con Postgres, CI que corre pytest | Predecir qué pasa si la API arranca antes que Postgres; comprobarlo y arreglarlo con healthcheck |
-| 2 | Modelos SQLAlchemy 2.0 async: Producto, Categoría, Proveedor, Lote con vencimiento. Migraciones Alembic | Cambiar un modelo sin migrar y predecir el error exacto antes de correr |
+| 2 | Modelos SQLAlchemy 2.0 async: Negocio, Categoría, Proveedor, Producto (código de barras, SKU) y Lote con cantidad y vencimiento; `business_id` en todo; stock derivado de los lotes. Migraciones Alembic | Cambiar un modelo sin migrar y predecir el error exacto antes de correr |
 | 3 | CRUD de productos con Pydantic v2, paginación y filtros por categoría | Borrar el router y reconstruirlo desde un archivo vacío, sin mirar |
-| 4 | Importador de catálogo desde CSV: validación, errores por fila, carga masiva | Cargar 10.000 filas; predecir el tiempo antes y luego optimizar |
-| 5 | Auth JWT con roles (dueño, empleado) y dependencias de FastAPI | Predecir qué devuelve un token expirado en cada endpoint y escribir los tests que lo prueban |
-| 6 | Ventas y movimientos de stock con transacciones; endpoint de productos bajo el mínimo | Lanzar dos ventas simultáneas del último producto; predecir si el stock queda negativo |
+| 4 | Importador de catálogo desde CSV (forma de `POST /v1/catalogo`): upsert por código de barras o SKU, validación, errores por fila, carga masiva; el stock inicial crea un lote de apertura | Cargar 10.000 filas; predecir el tiempo antes y luego optimizar |
+| 5 | Auth JWT con roles (dueño, empleado) y dependencias de FastAPI; el `business_id` sale del token | Predecir qué devuelve un token expirado en cada endpoint y escribir los tests que lo prueban |
+| 6 | Documentos con transacciones e `idempotency_key`: recepciones (crean lotes) y ventas (consumen lotes en orden FEFO); endpoint de productos bajo el mínimo | Lanzar dos ventas simultáneas del último producto; predecir si el stock queda negativo |
 | 7 | Buffer: deuda de tests, refactor, repaso de `breaks.md` | Explicar en voz alta, en inglés, el recorrido de un request desde el router hasta la DB |
 
 ### Preguntas que debes hacerme en este hito
@@ -229,8 +268,25 @@ al final del mes.
 
 ---
 
-## ARRANQUE
+## ESTADO ACTUAL
 
-Primera sesión: empieza por el día 1 del Hito 1. Antes de escribir nada, pregúntame cómo
-creo que debería estructurarse el proyecto y por qué. Después compara con tu propuesta
-y discutimos las diferencias.
+**Día 1: completo.** Siguiente: **día 2** (modelos + Alembic). Al empezar una sesión, retomar
+desde aquí y preguntarme primero por lo que quedó pendiente.
+
+Decisiones ya tomadas en el día 1 (no se vuelven a discutir salvo que yo lo pida):
+
+- Estructura: paquete `app/` con `core/`, `db/`, `models/`, `schemas/`, `repositories/`,
+  `services/`, `routers/`. Sin `ports/` ni `entities/` hasta que haya una segunda implementación.
+- **Nada lee la configuración al importar.** `get_settings()` con `@lru_cache`, siempre llamado
+  dentro de funciones.
+- Base de datos: `build_engine(url)` sin caché, para tests; `get_engine()` y `get_sessionmaker()`
+  con `@lru_cache`, para la app; `get_session()` como dependencia, una sesión por request.
+- App: `create_app(settings=None)`, una fábrica. uvicorn arranca con `--factory`; los tests llaman
+  a `create_app(...)` con una configuración de prueba.
+- `/health` no toca la base; `/health/db` hace `SELECT 1`, registra el detalle con
+  `logger.exception` y devuelve 503 con un mensaje genérico.
+- Logging: `logging.basicConfig` una sola vez, dentro de `create_app`.
+- Compose: healthcheck de `db` con `pg_isready -h localhost`; la API espera con
+  `condition: service_healthy`.
+- CI: job `test` (pytest) y job `docker` (construye la imagen y hace un smoke test de `/health`).
+- Entorno del desarrollador: Windows + PowerShell. Dar los comandos en PowerShell.
